@@ -165,8 +165,10 @@ PREVIEW_SECRET='your-token' PROXY_HEADER_SECRET='your-proxy-token' ./scripts/che
 Share this **once** with your testing team (bookmark it):
 
 ```
-https://dashboard.callinix.com/?preview=YOUR_PREVIEW_SECRET
+https://dashboard.callinix.com/__preview?preview=YOUR_PREVIEW_SECRET
 ```
+
+Do **not** use `/?preview=` on the homepage only — Cloudflare may cache `/` and ignore the query string (`cf-cache-status: HIT`), so the worker never runs. The `/__preview` path avoids that. After cache purge, `/?preview=` redirects to `/__preview` automatically.
 
 What happens:
 
@@ -282,7 +284,12 @@ Cloudflare may cache `https://dashboard.callinix.com/` and serve it for `/?previ
    - **Name:** `Bypass cache for preview`
    - **When:** Custom filter expression: `(http.host eq "dashboard.callinix.com" and http.request.uri.query contains "preview=")`
    - **Then:** Cache eligibility → **Bypass cache**
-3. Retry preview URL in incognito — expect **522** (no app on `app` yet), not the landing page.
+3. Retry in incognito — expect **522** (no app on `app` yet), not the landing page.
+
+4. **Immediate test without purge:** use  
+   `https://dashboard.callinix.com/__preview?preview=YOUR_PREVIEW_SECRET`
+
+**Also check:** zone **Caching** → **Configuration** → ensure **Cache by query string** is not disabled for the dashboard host (if "Ignore Query String" is on, `/?preview=` will always serve cached `/`).
 
 After deploy `8edd04f+`, worker responses use `CDN-Cache-Control: no-store` so preview/proxy responses are not cached again.
 | Real app assets break | App may use absolute URLs; proxy may need path/header tweaks for your stack |

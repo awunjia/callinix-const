@@ -131,6 +131,17 @@ export default {
       })
     }
 
+    // CDN often caches "/" and ignores ?preview= — use /__preview path instead
+    if (url.searchParams.has('preview') && url.pathname === '/') {
+      const dest = new URL(request.url)
+      dest.pathname = '/__preview'
+      const headers = new Headers()
+      headers.set('Location', dest.toString())
+      headers.set('Cache-Control', 'no-store, private')
+      headers.set('CDN-Cache-Control', 'no-store')
+      return new Response(null, { status: 307, headers })
+    }
+
     // ?preview= in URL — never fall through to under-construction silently
     if (url.searchParams.has('preview')) {
       if (!env.PREVIEW_SECRET?.trim()) {
