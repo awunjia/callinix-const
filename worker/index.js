@@ -7,6 +7,27 @@
 const PREVIEW_COOKIE =
   'callinix_tester=1; Domain=.callinix.com; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000'
 
+/** Stop Cloudflare from caching worker responses (fixes stale under-construction on ?preview=) */
+function withNoStore(response) {
+  const headers = new Headers(response.headers)
+  headers.set('Cache-Control', 'no-store, private')
+  headers.set('CDN-Cache-Control', 'no-store')
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+}
+
+function plainResponse(body, status) {
+  return withNoStore(
+    new Response(body, {
+      status,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }),
+  )
+}
+
 function parseCookie(header) {
   const out = {}
   if (!header) return out
@@ -78,6 +99,8 @@ async function proxyWithPreviewCookie(request, env) {
   const response = await proxyToApp(request, env)
   const headers = new Headers(response.headers)
   headers.append('Set-Cookie', PREVIEW_COOKIE)
+  headers.set('Cache-Control', 'no-store, private')
+  headers.set('CDN-Cache-Control', 'no-store')
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -111,27 +134,21 @@ export default {
     // ?preview= in URL — never fall through to under-construction silently
     if (url.searchParams.has('preview')) {
       if (!env.PREVIEW_SECRET?.trim()) {
-        return new Response(
+        return plainResponse(
           'Preview gateway: PREVIEW_SECRET is not set. Add it as an encrypted Secret in Cloudflare (plain text variables are removed on every Git deploy).',
-          { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } },
+          503,
         )
       }
       if (!previewMatches(url, env)) {
-        return new Response('Preview gateway: invalid preview token.', {
-          status: 403,
-          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-        })
+        return plainResponse('Preview gateway: invalid preview token.', 403)
       }
       if (!env.APP_ORIGIN) {
-        return new Response('Preview gateway: APP_ORIGIN is not configured.', {
-          status: 500,
-          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-        })
+        return plainResponse('Preview gateway: APP_ORIGIN is not configured.', 500)
       }
       if (!env.PROXY_HEADER_SECRET?.trim()) {
-        return new Response(
+        return plainResponse(
           'Preview gateway: PROXY_HEADER_SECRET is not set. Add it as an encrypted Secret (must match the app→dashboard redirect rule).',
-          { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } },
+          503,
         )
       }
       // Origin down (no app deployed yet) → browser shows 502/522 from Cloudflare
@@ -140,13 +157,13 @@ export default {
 
     if (!env.APP_ORIGIN) {
       if (isTester(request, env)) {
-        return new Response('APP_ORIGIN is not configured', { status: 500 })
+        return plainResponse('APP_ORIGIN is not configured', 500)
       }
       return env.ASSETS.fetch(request)
     }
 
     if (isTester(request, env)) {
-      return proxyToApp(request, env)
+      return withNoStore(await proxyToApp(request, env))
     }
 
     return env.ASSETS.fetch(request)

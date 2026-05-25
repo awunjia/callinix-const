@@ -269,7 +269,22 @@ For “signed in” staff via Google/Okta instead of a shared secret:
 | Everyone sees under-construction | `PREVIEW_SECRET` not set, wrong secret in URL, or cookie blocked |
 | Everyone sees errors / loop | `APP_ORIGIN` is `https://dashboard.callinix.com` — use the **backend** hostname |
 | Preview works once, then landing | Cookie `Domain` must be `.callinix.com`; redeploy latest worker |
-| Preview URL still shows landing | Redeploy worker; confirm `PROXY_HEADER_SECRET` matches redirect rule; `APP_ORIGIN` is `https://app.callinix.com` |
+| Preview URL still shows landing | **Purge CDN cache** (see below); secrets must be encrypted; `APP_ORIGIN` is `https://app.callinix.com` |
+
+#### Preview URL shows under-construction but secrets are set (CDN cache)
+
+Cloudflare may cache `https://dashboard.callinix.com/` and serve it for `/?preview=...` **without running the worker** (`cf-cache-status: HIT`).
+
+**Fix once:**
+
+1. **Caching** → **Configuration** → **Purge Cache** → **Purge Everything** (zone `callinix.com`), or Custom Purge → URL: `https://dashboard.callinix.com/*`
+2. Add a **Cache Rule** (zone `callinix.com` → **Rules** → **Cache Rules** → Create):
+   - **Name:** `Bypass cache for preview`
+   - **When:** Custom filter expression: `(http.host eq "dashboard.callinix.com" and http.request.uri.query contains "preview=")`
+   - **Then:** Cache eligibility → **Bypass cache**
+3. Retry preview URL in incognito — expect **522** (no app on `app` yet), not the landing page.
+
+After deploy `8edd04f+`, worker responses use `CDN-Cache-Control: no-store` so preview/proxy responses are not cached again.
 | Real app assets break | App may use absolute URLs; proxy may need path/header tweaks for your stack |
 
 ---
