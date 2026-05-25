@@ -1,8 +1,11 @@
 /**
- * Routes callinix.com:
- * - Everyone else → under-construction static assets
- * - Testers (cookie, IP allowlist, or ?preview=SECRET) → real app origin
+ * dashboard.callinix.com gateway:
+ * - Public → under-construction static assets
+ * - Testers (preview secret, cookie, or IP) → real app at APP_ORIGIN
  */
+
+const PREVIEW_COOKIE =
+  'callinix_tester=1; Domain=.callinix.com; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000'
 
 function parseCookie(header) {
   const out = {}
@@ -28,33 +31,41 @@ function isTester(request, env) {
   return false
 }
 
-function redirectWithPreviewCookie(url, env) {
-  const target = new URL(url)
-  target.searchParams.delete('preview')
-  const headers = new Headers()
-  headers.set(
-    'Set-Cookie',
-    'callinix_tester=1; Domain=.callinix.com; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000',
-  )
-  headers.set('Location', target.toString())
-  return new Response(null, { status: 302, headers })
+function previewMatches(url, env) {
+  const token = url.searchParams.get('preview')?.trim()
+  const secret = env.PREVIEW_SECRET?.trim()
+  return Boolean(token && secret && token === secret)
 }
 
-function proxyToApp(request, env) {
+function buildOriginUrl(request, env) {
   const incoming = new URL(request.url)
   const origin = new URL(env.APP_ORIGIN)
   incoming.hostname = origin.hostname
   incoming.protocol = origin.protocol
   incoming.port = origin.port
+  incoming.searchParams.delete('preview')
+  return incoming
+}
 
+function proxyToApp(request, env) {
+  const target = buildOriginUrl(request, env)
+  const origin = new URL(env.APP_ORIGIN)
   const headers = new Headers(request.headers)
-  // Lets Cloudflare Redirect Rules skip app → dashboard for worker origin fetches
+
+  // Required: wrong Host makes app.callinix.com mis-route or hit redirect rules
+  headers.set('Host', origin.host)
+  headers.set('X-Forwarded-Host', new URL(request.url).host)
+  headers.set(
+    'X-Forwarded-Proto',
+    new URL(request.url).protocol.replace(':', ''),
+  )
+
   if (env.PROXY_HEADER_SECRET) {
     headers.set('X-Callinx-Proxy', env.PROXY_HEADER_SECRET)
   }
 
   return fetch(
-    new Request(incoming.toString(), {
+    new Request(target.toString(), {
       method: request.method,
       headers,
       body: request.body,
@@ -63,19 +74,43 @@ function proxyToApp(request, env) {
   )
 }
 
+async function proxyWithPreviewCookie(request, env) {
+  const response = await proxyToApp(request, env)
+  const headers = new Headers(response.headers)
+  headers.append('Set-Cookie', PREVIEW_COOKIE)
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+}
+
+function redirectWithPreviewCookie(url) {
+  const target = new URL(url)
+  target.searchParams.delete('preview')
+  const headers = new Headers()
+  headers.set('Set-Cookie', PREVIEW_COOKIE)
+  headers.set('Location', target.toString())
+  return new Response(null, { status: 302, headers })
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
-    const preview = url.searchParams.get('preview')
 
-    if (preview && env.PREVIEW_SECRET && preview === env.PREVIEW_SECRET) {
-      return redirectWithPreviewCookie(url, env)
+    if (!env.APP_ORIGIN) {
+      if (previewMatches(url, env) || isTester(request, env)) {
+        return new Response('APP_ORIGIN is not configured', { status: 500 })
+      }
+      return env.ASSETS.fetch(request)
+    }
+
+    // Valid ?preview= → proxy real app immediately and set cookie
+    if (previewMatches(url, env)) {
+      return proxyWithPreviewCookie(request, env)
     }
 
     if (isTester(request, env)) {
-      if (!env.APP_ORIGIN) {
-        return new Response('APP_ORIGIN is not configured', { status: 500 })
-      }
       return proxyToApp(request, env)
     }
 

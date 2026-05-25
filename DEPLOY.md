@@ -138,9 +138,10 @@ https://dashboard.callinix.com/?preview=YOUR_PREVIEW_SECRET
 What happens:
 
 1. Worker compares `preview` query param to `PREVIEW_SECRET`
-2. On match, responds with **302** and sets cookie `callinix_tester=1` on `.callinix.com` (30 days)
-3. Browser is redirected to `https://dashboard.callinix.com/` (no secret in the URL)
-4. Next requests include the cookie → worker **proxies** to `APP_ORIGIN` → you see the real app
+2. On match, **proxies to the real app immediately** and sets cookie `callinix_tester=1` on `.callinix.com` (30 days)
+3. Next visits (without `?preview=`) still use the cookie → proxied to `APP_ORIGIN`
+
+**Requires:** `PROXY_HEADER_SECRET` set (so origin fetches to `app.callinix.com` bypass the redirect rule) and latest worker deployed.
 
 To exit preview mode: delete cookie `callinix_tester` in devtools, or use a private window.
 
@@ -235,6 +236,7 @@ For “signed in” staff via Google/Okta instead of a shared secret:
 | Everyone sees under-construction | `PREVIEW_SECRET` not set, wrong secret in URL, or cookie blocked |
 | Everyone sees errors / loop | `APP_ORIGIN` is `https://dashboard.callinix.com` — use the **backend** hostname |
 | Preview works once, then landing | Cookie `Domain` must be `.callinix.com`; redeploy latest worker |
+| Preview URL still shows landing | Redeploy worker; confirm `PROXY_HEADER_SECRET` matches redirect rule; `APP_ORIGIN` is `https://app.callinix.com` |
 | Real app assets break | App may use absolute URLs; proxy may need path/header tweaks for your stack |
 
 ---
