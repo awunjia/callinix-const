@@ -34,7 +34,7 @@ function redirectWithPreviewCookie(url, env) {
   const headers = new Headers()
   headers.set(
     'Set-Cookie',
-    'callinix_tester=1; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000',
+    'callinix_tester=1; Domain=.callinix.com; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000',
   )
   headers.set('Location', target.toString())
   return new Response(null, { status: 302, headers })
