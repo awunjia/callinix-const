@@ -41,7 +41,7 @@ Your deploy command must **install dependencies and build** before Wrangler uplo
 |--------|--------|
 | **Deploy command** | `npm ci && npx wrangler deploy` |
 | Root directory | `/` |
-| Node version | `20` |
+| Node version | `22` (required by Wrangler 4.94+) |
 
 Do **not** use `npx wrangler deploy` alone — `dist/` will not exist and you will get:
 
