@@ -1,6 +1,6 @@
-# Callinx — Under construction
+# Calliniix — Under construction
 
-A minimal React landing page for [Callinx](https://callinx.com), an AI voice receptionist SaaS.
+A minimal React landing page for [Calliniix](https://callinix.com) — we turn customer communication into revenue and action.
 
 ## Development
 

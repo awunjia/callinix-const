@@ -13,7 +13,7 @@ export default function App() {
       <main className="content">
         <img
           src="/callinx-mark.png"
-          alt="Callinx"
+          alt="Calliniix"
           className="logo"
           width={120}
           height={120}
@@ -22,27 +22,27 @@ export default function App() {
         <p className="badge">Coming soon</p>
 
         <h1 className="title">
-          Your AI voice receptionist - never miss a call
+          We turn customer communication into revenue and action
         </h1>
 
         <p className="lead">
-          Callinx is your AI voice receptionist - every call gets answered, every
-          conversation can become a lead, and customer questions are handled
-          without your team picking up the phone.
+          Calliniix is your AI voice receptionist - every call gets answered,
+          every conversation can drive revenue, and customer questions turn into
+          clear next steps without your team picking up the phone.
         </p>
 
         <ul className="pillars">
           <li>
             <span className="pillar-icon" aria-hidden="true">◆</span>
-            Never miss a call
+            Communication that converts
           </li>
           <li>
             <span className="pillar-icon" aria-hidden="true">◆</span>
-            Calls into leads
+            Revenue from every call
           </li>
           <li>
             <span className="pillar-icon" aria-hidden="true">◆</span>
-            Customer queries answered
+            Action, not voicemail
           </li>
         </ul>
 
@@ -50,7 +50,7 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        <span>© {new Date().getFullYear()} Callinx</span>
+        <span>© {new Date().getFullYear()} Calliniix</span>
         <span className="footer-dot" aria-hidden="true">·</span>
         <span>Secure, fast - built in Finland</span>
       </footer>
